@@ -1,0 +1,255 @@
+ -- MYSQL  PROJECT
+ -- NAME: EMMANUEL ADEBOMI
+ 
+ 
+/* QUESTION 1: Total Sales by Employee:
+-- Write a query to calculate the total sales (in dollars) made by each employee, considering the quantity 
+ -- and unit price of products sold. 
+ -- SOLUTION */
+ 
+SELECT E.EMPLOYEEID, E.FIRSTNAME, E.LASTNAME,
+FORMAT(SUM(od.Quantity * od.UnitPrice * (1 - od.Discount) * 1.08), 2) AS TotalSalesUSD
+ FROM ORDERS O 
+ JOIN EMPLOYEES E ON O.EMPLOYEEID = E.EMPLOYEEID
+ JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+ GROUP BY E.EMPLOYEEID, E.FIRSTNAME, E.LASTNAME
+ ORDER BY TOTALSALESUSD DESC;
+ 
+ /* QUESTION 2: Top 5 Customers by Sales:
+   - Identify the top 5 customers who have generated the most revenue. Show the customer’s name and the total amount they’ve spent.
+ */
+
+SELECT C.CUSTOMERID, C.CUSTOMERNAME,
+ SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALSPENT
+ FROM ORDERS O
+ JOIN CUSTOMERS C ON O.CUSTOMERID = C.CUSTOMERID
+ JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+ GROUP BY C.CUSTOMERID, C.CUSTOMERNAME
+ ORDER BY TOTALSPENT
+ LIMIT 5;
+
+/* QUESTION 3: Monthly Sales Trend:
+   - Write a query to display the total sales amount for each month in the year 1997.
+*/
+
+SELECT
+ MONTH(O.ORDERDATE) AS MONTH,
+ SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALSALES
+ FROM ORDERS O
+ JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+ WHERE YEAR(O.ORDERDATE) = 1997
+ GROUP BY MONTH(O.ORDERDATE)
+ ORDER BY MONTH;
+
+/* QUESTION 4: Order Fulfilment Time:
+   - Calculate the average time (in days) taken to fulfil an order for each employee. Assuming shipping takes 3 or 5 days respectively depending on if the item was ordered in 1996 or 1997.
+*/
+
+SELECT 
+    E.EMPLOYEEID, YEAR(O.ORDERDATE),
+    CONCAT(E.FIRSTNAME, ' ', E.LASTNAME) AS EMPLOYEENAME,
+    ROUND(AVG(
+          CASE
+			 WHEN YEAR(O.ORDERDATE) = 1996 THEN 3
+			 WHEN YEAR(O.ORDERDATE) = 1997 THEN 5
+			 ELSE 0
+		 END),
+2) AS AVGFULFILMENTDAY
+FROM ORDERS O       
+JOIN EMPLOYEES E ON O.EMPLOYEEID = E.EMPLOYEEID
+GROUP BY E.EMPLOYEEID , EMPLOYEENAME, YEAR(O.ORDERDATE);
+
+/* QUESTION 5: Products by Category with No Sales:
+   - List the customers operating in London and total sales for each.
+*/
+
+ SELECT C.CUSTOMERID, C.CUSTOMERNAME, C.CITY,
+ SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALSALES
+ FROM CUSTOMERS C
+ JOIN ORDERS O ON C.CUSTOMERID = O.CUSTOMERID
+ JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+ WHERE (C.CITY) = 'LONDON'
+ GROUP BY C.CUSTOMERID, C.CUSTOMERNAME, C.CITY
+ ORDER BY TOTALSALES;
+ 
+ /* QUESTION 6: Customers with Multiple Orders on the Same Date:
+   - Write a query to find customers who have placed more than one order on the same date.
+*/
+
+SELECT CustomerName, OrderDate, COUNT(OrderDate) AS DATE_COUNT
+FROM orders O
+JOIN customers C ON C.CustomerID = O.CustomerID
+GROUP BY CustomerName, OrderDate
+HAVING COUNT(CustomerName) > 1;
+
+/* QUESTION 7: Average Discount per Product:
+   - Calculate the average discount given per product across all orders. Round to 2 decimal places.
+*/
+
+ SELECT
+ P.PRODUCTID, P.PRODUCTNAME,
+ ROUND(AVG(OD.DISCOUNT), 2) AS AVGDISCOUNT
+ FROM ORDERDETAILS OD
+JOIN PRODUCTS P ON OD.PRODUCTID = P.PRODUCTID
+GROUP BY P.PRODUCTID, P.PRODUCTNAME
+ORDER BY AVGDISCOUNT
+LIMIT 10;
+
+/* QUESTION 8: Products Ordered by Each Customer:
+   - For each customer, list the products they have ordered along with the total quantity of each product ordered.
+*/
+
+SELECT
+C.CUSTOMERID,
+C.CUSTOMERNAME,
+P.PRODUCTNAME,
+SUM(OD.QUANTITY) AS TOTALQUANTITY
+FROM CUSTOMERS C
+JOIN ORDERS O ON C.CUSTOMERID = O.CUSTOMERID
+JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+JOIN PRODUCTS P ON OD.PRODUCTID = P.PRODUCTID
+GROUP BY C.CUSTOMERID, C.CUSTOMERNAME, P.PRODUCTNAME;
+
+/* QUESTION 9: Employee Sales Ranking:
+   - Rank employees based on their total sales. Show the employeename, total sales, and their rank.
+*/
+SELECT E.EMPLOYEEID,
+ CONCAT(E.FIRSTNAME, " ", E. LASTNAME) AS EMPLOYEENAME,
+ SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALSALES,
+ RANK() OVER (ORDER BY SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) DESC) AS SALESRANK
+ FROM ORDERS O
+ JOIN EMPLOYEES E ON O.EMPLOYEEID = E.EMPLOYEEID
+ JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+ GROUP BY E.EMPLOYEEID, EMPLOYEENAME; 
+
+/* QUESTION 10: Sales by Country and Category:
+    - Write a query to display the total sales amount for each product category, grouped by country.
+*/
+
+SELECT 
+C.COUNTRY, CAT.CATEGORYNAME,
+SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALSALES
+FROM ORDERS O 
+JOIN CUSTOMERS C ON O.CUSTOMERID = C.CUSTOMERID 
+JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+JOIN PRODUCTS P ON OD.PRODUCTID = P.PRODUCTID
+JOIN CATEGORIES CAT ON P.CATEGORYID = CAT.CATEGORYID
+GROUP BY C.COUNTRY, CAT.CATEGORYNAME 
+ORDER BY TOTALSALES, C.COUNTRY DESC;
+
+/*QUESTION 11: Year-over-Year Sales Growth:
+    - Calculate the percentage growth in sales from one year to the next for each product.
+*/
+
+SELECT
+    P.PRODUCTID,
+    P.PRODUCTNAME,
+    
+    ROUND(SUM(CASE WHEN YEAR(O.ORDERDATE) = 1996 
+                   THEN OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                   ELSE 0 END), 2) AS PREVIOUSYEARSALES,
+
+    ROUND(SUM(CASE WHEN YEAR(O.ORDERDATE) = 1997 
+                   THEN OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                   ELSE 0 END), 2) AS CURRENTYEARSALES,
+
+    CASE
+        WHEN SUM(CASE WHEN YEAR(O.ORDERDATE) = 1996 
+                      THEN OD.DISCOUNT * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                      ELSE 0 END) = 0 THEN 'N/A'
+        ELSE CONCAT(ROUND(
+            (
+                SUM(CASE WHEN YEAR(O.ORDERDATE) = 1997 
+                         THEN OD.DISCOUNT * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                         ELSE 0 END) -
+                SUM(CASE WHEN YEAR(O.ORDERDATE) = 1996 
+                         THEN OD.DISCOUNT * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                         ELSE 0 END)
+            ) /
+            SUM(CASE WHEN YEAR(O.ORDERDATE) = 1996 
+                     THEN OD.DISCOUNT * OD.UNITPRICE * (1 - OD.DISCOUNT) 
+                     ELSE 0 END) * 100, 2), '%')
+    END AS GROWTHPERCENT
+
+FROM ORDERDETAILS OD
+JOIN ORDERS O ON OD.ORDERID= O.ORDERID
+JOIN PRODUCTS P ON OD.PRODUCTID= P.PRODUCTID
+GROUP BY P.PRODUCTID, P.PRODUCTNAME
+ORDER BY P.PRODUCTID;
+
+/* QUESTION 12: Order Quantity Percentile:
+    - Calculate the percentile rank of each order based on the total quantity of products in the order.
+*/
+
+SELECT ORDERID,
+SUM(QUANTITY) AS TOTAL_QUANTITY,
+PERCENT_RANK() OVER (ORDER BY SUM(QUANTITY)) AS PERCENTILE_RANK
+FROM ORDERDETAILS
+GROUP BY ORDERID;
+
+/* QUESTION 13: Products Never Reordered:
+    - Identify products that have been sold but have never been reordered (ordered only once). 
+*/
+
+SELECT P.PRODUCTID, P.PRODUCTNAME AS UNREORDERED_PRODUCT
+FROM PRODUCTS P
+JOIN ORDERDETAILS OD ON P.PRODUCTID = OD.PRODUCTID
+GROUP BY P.PRODUCTID, UNREORDERED_PRODUCT
+HAVING COUNT(OD.ORDERID) = 1;
+
+/* QUESTION 14: Most Valuable Product by Revenue:
+    - Write a query to find the product that has generated the most revenue in each category.
+*/
+
+WITH PRODUCTREVENUE AS (
+   SELECT 
+    CAT.CATEGORYID,
+    CAT.CATEGORYNAME,
+    P.PRODUCTNAME,
+    P.PRODUCTID,
+    SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) AS TOTALREVENUE
+FROM ORDERDETAILS OD
+JOIN PRODUCTS P ON OD.PRODUCTID = P.PRODUCTID
+JOIN CATEGORIES CAT ON P.CATEGORYID = CAT.CATEGORYID 
+GROUP BY CAT.CATEGORYID, CAT.CATEGORYNAME, P.PRODUCTNAME, P.PRODUCTID
+),
+RANKEDPRODUCTS AS (
+       SELECT *,
+          RANK() OVER (PARTITION BY CATEGORYID ORDER BY TOTALREVENUE DESC) AS REVENUERANK
+       FROM PRODUCTREVENUE
+       )
+SELECT 
+CATEGORYID,
+CATEGORYNAME,
+PRODUCTNAME,
+PRODUCTID,
+TOTALREVENUE AS MAXREVENUE
+FROM RANKEDPRODUCTS
+WHERE REVENUERANK = 1;
+
+/* QUESTION 15: Complex Order Details:
+    - Identify orders where the total price of all items exceeds $100 and contains at least one product with a discount of 5% or more.
+*/
+
+SELECT 
+    O.ORDERID,
+    C.CUSTOMERNAME,
+    O.ORDERDATE,
+    P.PRODUCTNAME,
+    SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) OVER (PARTITION BY O.ORDERID) AS TOTALREVENUE,
+    MAX(OD.DISCOUNT) OVER (PARTITION BY O.ORDERID) AS MAXDISCOUNT
+FROM ORDERS O
+JOIN CUSTOMERS C ON O.CUSTOMERID = C.CUSTOMERID
+JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+JOIN PRODUCTS P ON OD.PRODUCTID = P.PRODUCTID
+WHERE O.ORDERID IN (
+    SELECT 
+        O.ORDERID
+    FROM ORDERS O
+    JOIN ORDERDETAILS OD ON O.ORDERID = OD.ORDERID
+    GROUP BY O.ORDERID
+    HAVING 
+        SUM(OD.QUANTITY * OD.UNITPRICE * (1 - OD.DISCOUNT)) > 100
+        AND MAX(OD.DISCOUNT) >= 0.05
+)
+ORDER BY O.ORDERID, P.PRODUCTNAME;
